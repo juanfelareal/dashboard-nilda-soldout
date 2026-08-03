@@ -488,6 +488,40 @@
         // Storage key
         const STORAGE_KEY = 'nilda_dashboard_sheet_id';
 
+        // Extract sheet ID from URL or raw ID
+        function extractSheetId(input) {
+            if (!input) return null;
+            input = input.trim();
+
+            // If it's a full Google Sheets URL, extract the ID
+            // Patterns: /d/SHEET_ID/edit, /d/e/2PACX.../pubhtml, /d/SHEET_ID
+            const patterns = [
+                /\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/,  // Standard edit URL
+                /\/spreadsheets\/d\/e\/([a-zA-Z0-9_-]+)/,  // Published URL (wrong)
+            ];
+
+            for (const pattern of patterns) {
+                const match = input.match(pattern);
+                if (match) {
+                    // If it starts with 2PACX, it's a published URL - that's wrong
+                    if (match[1].startsWith('2PACX')) {
+                        alert('Ese es el ID de la URL publicada. Necesitas el ID de la URL original del sheet.\n\nBusca la URL cuando estés editando el sheet:\ndocs.google.com/spreadsheets/d/[ID-AQUI]/edit');
+                        return null;
+                    }
+                    return match[1];
+                }
+            }
+
+            // If it starts with 2PACX, it's a published URL
+            if (input.startsWith('2PACX')) {
+                alert('Ese es el ID de la URL publicada. Necesitas el ID de la URL original del sheet.\n\nBusca la URL cuando estés editando el sheet:\ndocs.google.com/spreadsheets/d/[ID-AQUI]/edit');
+                return null;
+            }
+
+            // Assume it's already just the ID
+            return input;
+        }
+
         // Load saved sheet ID
         function loadSheetId() {
             const saved = localStorage.getItem(STORAGE_KEY);
@@ -499,9 +533,11 @@
 
         // Save and load
         function saveAndLoad() {
-            const sheetId = document.getElementById('sheet-id').value.trim();
+            const input = document.getElementById('sheet-id').value;
+            const sheetId = extractSheetId(input);
             if (sheetId) {
                 localStorage.setItem(STORAGE_KEY, sheetId);
+                document.getElementById('sheet-id').value = sheetId; // Show clean ID
                 loadData(sheetId);
             }
         }
@@ -571,11 +607,18 @@
             const csv = await response.text();
             const parsed = Papa.parse(csv, { header: true, skipEmptyLines: true });
 
-            return parsed.data.map(row => ({
-                fecha: row.Fecha || row.fecha,
-                boletas: parseInt(row.Boletas || row.boletas || 0),
-                inversion: parseFloat((row.Inversion || row.inversion || '0').replace(/[^0-9.-]/g, '')) || 0
-            })).filter(row => row.fecha);
+            return parsed.data.map(row => {
+                // Find boletas column (flexible naming)
+                const boletasValue = row.Boletas || row.boletas || row['Boletas vendidas'] || row['boletas vendidas'] || '0';
+                // Find inversion column (flexible naming)
+                const inversionValue = row.Inversion || row.inversion || row['Inversión'] || row['inversion'] || '0';
+
+                return {
+                    fecha: row.Fecha || row.fecha,
+                    boletas: parseInt(String(boletasValue).replace(/[^0-9]/g, '')) || 0,
+                    inversion: parseFloat(String(inversionValue).replace(/[^0-9.-]/g, '')) || 0
+                };
+            }).filter(row => row.fecha);
         }
 
         // Get latest data point

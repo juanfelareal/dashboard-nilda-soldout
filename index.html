@@ -625,7 +625,7 @@
 
             console.log(`[${sheetName}] Columns found:`, { fechaCol, boletasCol, inversionCol, allHeaders: headers });
 
-            return parsed.data.map(row => {
+            const results = parsed.data.map(row => {
                 const fecha = fechaCol ? row[fechaCol] : null;
                 const boletas = boletasCol ? row[boletasCol] : '0';
                 const inversion = inversionCol ? row[inversionCol] : '0';
@@ -635,7 +635,10 @@
                     boletas: parseInt(String(boletas).replace(/[^0-9]/g, '')) || 0,
                     inversion: parseFloat(String(inversion).replace(/[^0-9.-]/g, '')) || 0
                 };
-            }).filter(row => row.fecha);
+            }).filter(row => row.fecha && (row.boletas > 0 || row.inversion > 0));
+
+            console.log(`[${sheetName}] Rows with data:`, results);
+            return results;
         }
 
         // Get latest data point

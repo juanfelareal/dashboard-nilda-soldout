@@ -607,16 +607,33 @@
             const csv = await response.text();
             const parsed = Papa.parse(csv, { header: true, skipEmptyLines: true });
 
+            // Find column names dynamically (case-insensitive, partial match)
+            const headers = parsed.meta.fields || [];
+            const findColumn = (keywords) => {
+                for (const header of headers) {
+                    const h = header.toLowerCase();
+                    for (const kw of keywords) {
+                        if (h.includes(kw.toLowerCase())) return header;
+                    }
+                }
+                return null;
+            };
+
+            const fechaCol = findColumn(['fecha', 'date']);
+            const boletasCol = findColumn(['boleta', 'vendida', 'ticket']);
+            const inversionCol = findColumn(['inversion', 'inversión', 'gasto', 'pauta']);
+
+            console.log(`[${sheetName}] Columns found:`, { fechaCol, boletasCol, inversionCol, allHeaders: headers });
+
             return parsed.data.map(row => {
-                // Find boletas column (flexible naming)
-                const boletasValue = row.Boletas || row.boletas || row['Boletas vendidas'] || row['boletas vendidas'] || '0';
-                // Find inversion column (flexible naming)
-                const inversionValue = row.Inversion || row.inversion || row['Inversión'] || row['inversion'] || '0';
+                const fecha = fechaCol ? row[fechaCol] : null;
+                const boletas = boletasCol ? row[boletasCol] : '0';
+                const inversion = inversionCol ? row[inversionCol] : '0';
 
                 return {
-                    fecha: row.Fecha || row.fecha,
-                    boletas: parseInt(String(boletasValue).replace(/[^0-9]/g, '')) || 0,
-                    inversion: parseFloat(String(inversionValue).replace(/[^0-9.-]/g, '')) || 0
+                    fecha: fecha,
+                    boletas: parseInt(String(boletas).replace(/[^0-9]/g, '')) || 0,
+                    inversion: parseFloat(String(inversion).replace(/[^0-9.-]/g, '')) || 0
                 };
             }).filter(row => row.fecha);
         }

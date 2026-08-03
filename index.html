@@ -442,7 +442,7 @@
         <div class="instructions" id="instructions">
             <h3>📋 Configuración del Google Sheet</h3>
             <ol>
-                <li>Crea un Google Sheet con dos hojas: <code>Medellin</code> y <code>Bogota</code></li>
+                <li>Crea un Google Sheet con dos hojas: <code>Medellín</code> y <code>Bogotá</code></li>
                 <li>En cada hoja, crea 3 columnas: <code>Fecha</code> | <code>Boletas</code> | <code>Inversion</code></li>
                 <li>Ingresa los datos diarios (acumulados, no del día)</li>
                 <li>Ve a <strong>Archivo → Compartir → Publicar en la web</strong></li>
@@ -474,14 +474,14 @@
                 date: new Date('2026-08-19'),
                 goal: 1000,
                 budget: 3000000,
-                sheetName: 'Bogota'
+                sheetName: 'Bogotá'
             },
             MEDELLIN: {
                 name: 'Medellín',
                 date: new Date('2026-08-22'),
                 goal: 1000,
                 budget: 3000000,
-                sheetName: 'Medellin'
+                sheetName: 'Medellín'
             }
         };
 
@@ -572,8 +572,8 @@
 
             try {
                 const [medellinData, bogotaData] = await Promise.all([
-                    fetchSheetData(sheetId, 'Medellin'),
-                    fetchSheetData(sheetId, 'Bogota')
+                    fetchSheetData(sheetId, 'Medellín'),
+                    fetchSheetData(sheetId, 'Bogotá')
                 ]);
 
                 renderDashboard(medellinData, bogotaData);
@@ -587,7 +587,7 @@
                     <div class="error">
                         <p><strong>Error al cargar los datos</strong></p>
                         <p style="font-size: 0.9rem; margin-top: 10px;">
-                            Verifica que el Google Sheet esté publicado y que los nombres de las hojas sean exactamente "Medellin" y "Bogota".
+                            Verifica que el Google Sheet esté publicado y que los nombres de las hojas sean exactamente "Medellín" y "Bogotá".
                         </p>
                     </div>
                 `;
@@ -597,7 +597,7 @@
 
         // Fetch data from a specific sheet
         async function fetchSheetData(sheetId, sheetName) {
-            const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${sheetName}`;
+            const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
             const response = await fetch(url);
 
             if (!response.ok) {

@@ -478,14 +478,14 @@
                 date: new Date('2026-08-19'),
                 goal: 1000,
                 budget: 3000000,
-                sheetName: 'Bogotá'
+                sheetNames: ['Bogotá', 'Bogota']  // Try with and without accent
             },
             MEDELLIN: {
                 name: 'Medellín',
                 date: new Date('2026-08-22'),
                 goal: 1000,
                 budget: 3000000,
-                sheetName: 'Medellín'
+                sheetNames: ['Medellín', 'Medellin']  // Try with and without accent
             }
         };
 
@@ -575,9 +575,23 @@
             `;
 
             try {
+                // Try to fetch with fallback sheet names (with/without accents)
+                const fetchWithFallback = async (sheetId, sheetNames) => {
+                    for (const name of sheetNames) {
+                        try {
+                            const data = await fetchSheetData(sheetId, name);
+                            console.log(`✓ Found sheet: ${name}`);
+                            return data;
+                        } catch (e) {
+                            console.log(`✗ Sheet "${name}" not found, trying next...`);
+                        }
+                    }
+                    throw new Error(`No se encontró ninguna hoja con nombres: ${sheetNames.join(', ')}`);
+                };
+
                 const [medellinData, bogotaData] = await Promise.all([
-                    fetchSheetData(sheetId, 'Medellín'),
-                    fetchSheetData(sheetId, 'Bogotá')
+                    fetchWithFallback(sheetId, CONFIG.MEDELLIN.sheetNames),
+                    fetchWithFallback(sheetId, CONFIG.BOGOTA.sheetNames)
                 ]);
 
                 renderDashboard(medellinData, bogotaData);

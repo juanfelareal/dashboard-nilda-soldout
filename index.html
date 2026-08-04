@@ -610,13 +610,30 @@ Ve a tu Google Sheet y:
                 const ventasRaw = ventasCol ? row[ventasCol] : '0';
                 const inversionRaw = inversionCol ? row[inversionCol] : '0';
 
+                const boletas = parseInt(String(boletasRaw).replace(/[^0-9]/g, '')) || 0;
+                const ventas = parseNumber(ventasRaw);
+                const inversion = parseNumber(inversionRaw);
+
+                // Check if this is a "Totales" row
+                const isTotales = fecha && String(fecha).toLowerCase().includes('total');
+
+                if (isTotales) {
+                    console.log(`[${sheetName}] Totales row found:`, { fecha, boletas, ventas, inversion, boletasRaw, ventasRaw, inversionRaw });
+                }
+
                 return {
                     fecha: fecha,
-                    boletas: parseInt(String(boletasRaw).replace(/[^0-9]/g, '')) || 0,
-                    ventas: parseNumber(ventasRaw),
-                    inversion: parseNumber(inversionRaw)
+                    boletas: boletas,
+                    ventas: ventas,
+                    inversion: inversion,
+                    isTotales: isTotales
                 };
-            }).filter(row => row.fecha && (row.boletas > 0 || row.inversion > 0 || row.ventas > 0));
+            }).filter(row => {
+                // Always include Totales rows
+                if (row.isTotales) return true;
+                // For other rows, require fecha and at least one value > 0
+                return row.fecha && (row.boletas > 0 || row.inversion > 0 || row.ventas > 0);
+            });
 
             console.log(`[${sheetName}] Rows with data:`, results);
             return results;
@@ -628,29 +645,27 @@ Ve a tu Google Sheet y:
                 return { boletas: 0, ventas: 0, inversion: 0 };
             }
 
-            console.log('All rows for getLatest:', data.map(r => ({ fecha: r.fecha, boletas: r.boletas })));
-
-            // Look for a "Totales" row first (check multiple variations)
-            const totalesRow = data.find(row => {
-                if (!row.fecha) return false;
-                const fecha = String(row.fecha).toLowerCase().trim();
-                return fecha.includes('total') || fecha.includes('suma') || fecha === 't';
-            });
+            // Look for a row marked as Totales
+            const totalesRow = data.find(row => row.isTotales);
 
             if (totalesRow) {
-                console.log('✓ Found Totales row:', totalesRow);
+                console.log('✓ Using Totales row:', totalesRow);
                 return totalesRow;
             }
 
-            console.log('✗ No Totales row found, using row with max boletas');
+            console.log('✗ No Totales row found, summing all daily values');
 
-            // If no totales row, find the row with maximum boletas (cumulative)
-            const maxBoletasRow = data.reduce((max, row) =>
-                row.boletas > max.boletas ? row : max
-            , data[0]);
+            // If no totales row, SUM all the daily values
+            const summed = data.reduce((acc, row) => ({
+                fecha: 'Calculated Total',
+                boletas: acc.boletas + row.boletas,
+                ventas: acc.ventas + row.ventas,
+                inversion: acc.inversion + row.inversion,
+                isTotales: false
+            }), { boletas: 0, ventas: 0, inversion: 0 });
 
-            console.log('Using max boletas row:', maxBoletasRow);
-            return maxBoletasRow;
+            console.log('Summed totals:', summed);
+            return summed;
         }
 
         // Calculate velocity (tickets per day)
@@ -659,9 +674,7 @@ Ve a tu Google Sheet y:
             if (!data || data.length < 2) return 0;
 
             // Filter out the "Totales" row for velocity calculation
-            const dailyData = data.filter(row =>
-                !String(row.fecha).toLowerCase().includes('total')
-            );
+            const dailyData = data.filter(row => !row.isTotales);
 
             if (dailyData.length < 2) return 0;
 

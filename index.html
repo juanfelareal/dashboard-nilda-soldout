@@ -442,29 +442,6 @@
             </div>
         </div>
 
-        <!-- Instructions -->
-        <div class="instructions" id="instructions">
-            <h3>📋 Configuración del Google Sheet</h3>
-            <ol>
-                <li>Crea un Google Sheet con dos hojas: <code>Medellín</code> y <code>Bogotá</code></li>
-                <li>En cada hoja, crea 3 columnas: <code>Fecha</code> | <code>Boletas</code> | <code>Inversion</code></li>
-                <li>Ingresa los datos diarios (acumulados, no del día)</li>
-                <li>Ve a <strong>Archivo → Compartir → Publicar en la web</strong></li>
-                <li>Selecciona "Todo el documento" y formato "CSV"</li>
-                <li>Copia el ID del sheet de la URL y pégalo abajo:</li>
-            </ol>
-            <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
-                <input type="text" id="sheet-id" placeholder="ID del Google Sheet (ej: 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms)"
-                       style="flex: 1; min-width: 300px; padding: 12px 16px; border: 2px solid var(--cream); border-radius: 8px; font-size: 0.9rem;">
-                <button onclick="saveAndLoad()"
-                        style="background: var(--green); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer;">
-                    Conectar
-                </button>
-            </div>
-            <p style="margin-top: 15px; font-size: 0.8rem; color: var(--gray);">
-                El ID es la parte larga de la URL: docs.google.com/spreadsheets/d/<strong>[ESTE-ES-EL-ID]</strong>/edit
-            </p>
-        </div>
 
         <!-- Last Update -->
         <div class="last-update" id="last-update"></div>
@@ -489,62 +466,8 @@
             }
         };
 
-        // Storage key
-        const STORAGE_KEY = 'nilda_dashboard_sheet_id';
-
-        // Extract sheet ID from URL or raw ID
-        function extractSheetId(input) {
-            if (!input) return null;
-            input = input.trim();
-
-            // If it's a full Google Sheets URL, extract the ID
-            // Patterns: /d/SHEET_ID/edit, /d/e/2PACX.../pubhtml, /d/SHEET_ID
-            const patterns = [
-                /\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/,  // Standard edit URL
-                /\/spreadsheets\/d\/e\/([a-zA-Z0-9_-]+)/,  // Published URL (wrong)
-            ];
-
-            for (const pattern of patterns) {
-                const match = input.match(pattern);
-                if (match) {
-                    // If it starts with 2PACX, it's a published URL - that's wrong
-                    if (match[1].startsWith('2PACX')) {
-                        alert('Ese es el ID de la URL publicada. Necesitas el ID de la URL original del sheet.\n\nBusca la URL cuando estés editando el sheet:\ndocs.google.com/spreadsheets/d/[ID-AQUI]/edit');
-                        return null;
-                    }
-                    return match[1];
-                }
-            }
-
-            // If it starts with 2PACX, it's a published URL
-            if (input.startsWith('2PACX')) {
-                alert('Ese es el ID de la URL publicada. Necesitas el ID de la URL original del sheet.\n\nBusca la URL cuando estés editando el sheet:\ndocs.google.com/spreadsheets/d/[ID-AQUI]/edit');
-                return null;
-            }
-
-            // Assume it's already just the ID
-            return input;
-        }
-
-        // Load saved sheet ID
-        function loadSheetId() {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) {
-                document.getElementById('sheet-id').value = saved;
-                loadData(saved);
-            }
-        }
-
-        // Save and load
-        function saveAndLoad() {
-            const input = document.getElementById('sheet-id').value;
-            const sheetId = extractSheetId(input);
-            if (sheetId) {
-                localStorage.setItem(STORAGE_KEY, sheetId);
-                document.getElementById('sheet-id').value = sheetId; // Show clean ID
-                loadData(sheetId);
-            }
-        }
+        // Fixed Google Sheet ID for this dashboard
+        const SHEET_ID = '18vxzq2pFdInFzr2xZa6VSPleTVn-z4B3GiTLSpEAdT4';
 
         // Calculate days until event
         function daysUntil(date) {
@@ -595,7 +518,6 @@
                 ]);
 
                 renderDashboard(medellinData, bogotaData);
-                document.getElementById('instructions').style.display = 'none';
                 document.getElementById('last-update').textContent =
                     `Última actualización: ${new Date().toLocaleString('es-CO')}`;
 
@@ -606,11 +528,15 @@
                     <div class="error">
                         <p><strong>Error al cargar los datos</strong></p>
                         <p style="font-size: 0.9rem; margin-top: 10px; white-space: pre-line;">
-                            ${errorMsg.includes('accesible') ? errorMsg : 'Verifica que el Google Sheet esté publicado y que los nombres de las hojas sean exactamente "Medellín" y "Bogotá".'}
+                            ${errorMsg}
+                        </p>
+                        <p style="font-size: 0.8rem; margin-top: 15px; color: var(--gray);">
+                            Reintentando en 30 segundos...
                         </p>
                     </div>
                 `;
-                document.getElementById('instructions').style.display = 'block';
+                // Retry after 30 seconds on error
+                setTimeout(() => loadData(SHEET_ID), 30000);
             }
         }
 
@@ -879,19 +805,14 @@ Ve a tu Google Sheet y:
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             updateCountdown();
-            loadSheetId();
+            loadData(SHEET_ID);
 
             // Update countdown every minute
             setInterval(updateCountdown, 60000);
-        });
 
-        // Auto-refresh every 5 minutes
-        setInterval(() => {
-            const sheetId = localStorage.getItem(STORAGE_KEY);
-            if (sheetId) {
-                loadData(sheetId);
-            }
-        }, 5 * 60 * 1000);
+            // Auto-refresh data every 5 minutes
+            setInterval(() => loadData(SHEET_ID), 5 * 60 * 1000);
+        });
     </script>
 </body>
 </html>

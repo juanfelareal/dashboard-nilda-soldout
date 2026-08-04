@@ -587,11 +587,12 @@
 
             } catch (error) {
                 console.error('Error loading data:', error);
+                const errorMsg = error.message || 'Error desconocido';
                 container.innerHTML = `
                     <div class="error">
                         <p><strong>Error al cargar los datos</strong></p>
-                        <p style="font-size: 0.9rem; margin-top: 10px;">
-                            Verifica que el Google Sheet esté publicado y que los nombres de las hojas sean exactamente "Medellín" y "Bogotá".
+                        <p style="font-size: 0.9rem; margin-top: 10px; white-space: pre-line;">
+                            ${errorMsg.includes('accesible') ? errorMsg : 'Verifica que el Google Sheet esté publicado y que los nombres de las hojas sean exactamente "Medellín" y "Bogotá".'}
                         </p>
                     </div>
                 `;
@@ -609,6 +610,17 @@
             }
 
             const csv = await response.text();
+
+            // Check if Google returned HTML instead of CSV (access denied)
+            if (csv.includes('<!DOCTYPE') || csv.includes('<html') || csv.includes('waffle-disclaimer')) {
+                console.error(`[${sheetName}] Sheet not publicly accessible - received HTML instead of CSV`);
+                throw new Error(`El Google Sheet no es accesible públicamente.
+
+Ve a tu Google Sheet y:
+1. Clic en "Compartir" (arriba a la derecha)
+2. Cambia a "Cualquier persona con el enlace puede ver"
+3. Además: Archivo → Compartir → Publicar en la web → Publicar`);
+            }
             const parsed = Papa.parse(csv, { header: true, skipEmptyLines: true });
 
             // Find column names dynamically (case-insensitive, partial match)

@@ -630,17 +630,39 @@
 
             console.log(`[${sheetName}] Columns found:`, { fechaCol, boletasCol, ventasCol, inversionCol, allHeaders: headers });
 
+            // Parse Colombian currency/numbers (handles both $52.910.000 and $52,910,000 formats)
+            const parseNumber = (val) => {
+                if (!val) return 0;
+                let str = String(val).trim();
+                // Remove currency symbol, spaces, and quotes
+                str = str.replace(/[$"'\s]/g, '');
+                // Check if it looks like Colombian format (periods as thousand separators)
+                // Colombian: 52.910.000 (periods) vs US: 52,910,000 (commas)
+                // If there are multiple periods, they're thousand separators
+                const periodCount = (str.match(/\./g) || []).length;
+                if (periodCount > 1) {
+                    // Colombian format - remove periods (thousand sep), keep commas (decimal)
+                    str = str.replace(/\./g, '').replace(',', '.');
+                } else {
+                    // Could be US format or single decimal - remove commas
+                    str = str.replace(/,/g, '');
+                }
+                const num = parseFloat(str);
+                console.log(`  Parsing "${val}" → "${str}" → ${num}`);
+                return isNaN(num) ? 0 : num;
+            };
+
             const results = parsed.data.map(row => {
                 const fecha = fechaCol ? row[fechaCol] : null;
-                const boletas = boletasCol ? row[boletasCol] : '0';
-                const ventas = ventasCol ? row[ventasCol] : '0';
-                const inversion = inversionCol ? row[inversionCol] : '0';
+                const boletasRaw = boletasCol ? row[boletasCol] : '0';
+                const ventasRaw = ventasCol ? row[ventasCol] : '0';
+                const inversionRaw = inversionCol ? row[inversionCol] : '0';
 
                 return {
                     fecha: fecha,
-                    boletas: parseInt(String(boletas).replace(/[^0-9]/g, '')) || 0,
-                    ventas: parseFloat(String(ventas).replace(/[^0-9.-]/g, '')) || 0,
-                    inversion: parseFloat(String(inversion).replace(/[^0-9.-]/g, '')) || 0
+                    boletas: parseInt(String(boletasRaw).replace(/[^0-9]/g, '')) || 0,
+                    ventas: parseNumber(ventasRaw),
+                    inversion: parseNumber(inversionRaw)
                 };
             }).filter(row => row.fecha && (row.boletas > 0 || row.inversion > 0 || row.ventas > 0));
 

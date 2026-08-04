@@ -410,7 +410,11 @@
         <div class="status-banner" id="status-banner">
             <div class="status-item">
                 <div class="value" id="total-sold">--</div>
-                <div class="label">Total Vendidas</div>
+                <div class="label">Boletas Vendidas</div>
+            </div>
+            <div class="status-item">
+                <div class="value" id="total-revenue">--</div>
+                <div class="label">Ingresos Totales</div>
             </div>
             <div class="status-item">
                 <div class="value" id="total-remaining">--</div>
@@ -425,8 +429,8 @@
                 <div class="label">Presupuesto Restante</div>
             </div>
             <div class="status-item">
-                <div class="value" id="avg-cpa">--</div>
-                <div class="label">CPA Promedio</div>
+                <div class="value" id="total-roas">--</div>
+                <div class="label">ROAS</div>
             </div>
         </div>
 
@@ -620,22 +624,25 @@
             };
 
             const fechaCol = findColumn(['fecha', 'date']);
-            const boletasCol = findColumn(['boleta', 'vendida', 'ticket']);
+            const boletasCol = findColumn(['boleta', 'ticket']);
+            const ventasCol = findColumn(['venta', 'ingreso', 'recaudo', 'total']);
             const inversionCol = findColumn(['inversion', 'inversión', 'gasto', 'pauta']);
 
-            console.log(`[${sheetName}] Columns found:`, { fechaCol, boletasCol, inversionCol, allHeaders: headers });
+            console.log(`[${sheetName}] Columns found:`, { fechaCol, boletasCol, ventasCol, inversionCol, allHeaders: headers });
 
             const results = parsed.data.map(row => {
                 const fecha = fechaCol ? row[fechaCol] : null;
                 const boletas = boletasCol ? row[boletasCol] : '0';
+                const ventas = ventasCol ? row[ventasCol] : '0';
                 const inversion = inversionCol ? row[inversionCol] : '0';
 
                 return {
                     fecha: fecha,
                     boletas: parseInt(String(boletas).replace(/[^0-9]/g, '')) || 0,
+                    ventas: parseFloat(String(ventas).replace(/[^0-9.-]/g, '')) || 0,
                     inversion: parseFloat(String(inversion).replace(/[^0-9.-]/g, '')) || 0
                 };
-            }).filter(row => row.fecha && (row.boletas > 0 || row.inversion > 0));
+            }).filter(row => row.fecha && (row.boletas > 0 || row.inversion > 0 || row.ventas > 0));
 
             console.log(`[${sheetName}] Rows with data:`, results);
             return results;
@@ -644,7 +651,7 @@
         // Get latest data point
         function getLatest(data) {
             if (!data || data.length === 0) {
-                return { boletas: 0, inversion: 0 };
+                return { boletas: 0, ventas: 0, inversion: 0 };
             }
             return data[data.length - 1];
         }
@@ -670,18 +677,20 @@
 
             // Update totals
             const totalSold = medellin.boletas + bogota.boletas;
+            const totalRevenue = (medellin.ventas || 0) + (bogota.ventas || 0);
             const totalGoal = CONFIG.MEDELLIN.goal + CONFIG.BOGOTA.goal;
             const totalRemaining = totalGoal - totalSold;
             const totalInvested = medellin.inversion + bogota.inversion;
             const totalBudget = CONFIG.MEDELLIN.budget + CONFIG.BOGOTA.budget;
             const totalBudgetRemaining = totalBudget - totalInvested;
-            const avgCPA = totalSold > 0 ? totalInvested / totalSold : 0;
+            const roas = totalInvested > 0 ? (totalRevenue / totalInvested) : 0;
 
             document.getElementById('total-sold').textContent = totalSold.toLocaleString();
+            document.getElementById('total-revenue').textContent = formatCurrency(totalRevenue);
             document.getElementById('total-remaining').textContent = totalRemaining.toLocaleString();
             document.getElementById('total-invested').textContent = formatCurrency(totalInvested);
             document.getElementById('total-budget-remaining').textContent = formatCurrency(totalBudgetRemaining);
-            document.getElementById('avg-cpa').textContent = formatCurrency(Math.round(avgCPA));
+            document.getElementById('total-roas').textContent = roas > 0 ? roas.toFixed(1) + 'x' : '--';
 
             // Color status items based on progress
             const soldPct = (totalSold / totalGoal) * 100;
@@ -702,7 +711,9 @@
             const budgetPct = (data.inversion / config.budget) * 100;
             const remaining = config.goal - data.boletas;
             const budgetRemaining = config.budget - data.inversion;
+            const ventas = data.ventas || 0;
             const cpa = data.boletas > 0 ? data.inversion / data.boletas : 0;
+            const roas = data.inversion > 0 ? (ventas / data.inversion) : 0;
             const velocity = calculateVelocity(allData);
             const daysLeft = daysUntil(config.date);
 
@@ -752,17 +763,17 @@
                             <div class="number">${remaining.toLocaleString()}</div>
                             <div class="label">Faltan vender</div>
                         </div>
+                        <div class="stat-box" style="background: #dcfce7;">
+                            <div class="number">${formatCurrency(ventas)}</div>
+                            <div class="label">Ingresos</div>
+                        </div>
                         <div class="stat-box ${budgetRemaining < 500000 ? 'warning' : ''}">
                             <div class="number">${formatCurrency(budgetRemaining)}</div>
                             <div class="label">Presupuesto restante</div>
                         </div>
-                        <div class="stat-box">
-                            <div class="number">${formatCurrency(Math.round(cpa))}</div>
-                            <div class="label">CPA (costo por boleta)</div>
-                        </div>
-                        <div class="stat-box ${willSellOut ? 'highlight' : ''}">
-                            <div class="number">${Math.round(projectedSold).toLocaleString()}</div>
-                            <div class="label">Proyección final</div>
+                        <div class="stat-box ${roas >= 3 ? 'highlight' : ''}">
+                            <div class="number">${roas > 0 ? roas.toFixed(1) + 'x' : '--'}</div>
+                            <div class="label">ROAS</div>
                         </div>
                     </div>
 

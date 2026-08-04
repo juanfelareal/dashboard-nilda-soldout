@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --cream: #F5F0EB;
@@ -257,42 +258,6 @@
             color: var(--white);
         }
 
-        /* Velocity indicator */
-        .velocity {
-            margin-top: 20px;
-            padding: 15px;
-            background: var(--cream);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .velocity-icon {
-            width: 40px;
-            height: 40px;
-            background: var(--green);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-        }
-
-        .velocity-info {
-            flex: 1;
-        }
-
-        .velocity-info .rate {
-            font-weight: 700;
-            font-size: 1.1rem;
-        }
-
-        .velocity-info .projection {
-            font-size: 0.8rem;
-            color: var(--gray);
-        }
-
         /* Loading State */
         .loading {
             text-align: center;
@@ -367,6 +332,55 @@
             font-size: 0.85rem;
         }
 
+        /* Charts Section */
+        .charts-section {
+            margin-bottom: 40px;
+        }
+
+        .charts-section h2 {
+            font-size: 1.5rem;
+            font-weight: 900;
+            letter-spacing: -1px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+        }
+
+        .chart-card {
+            background: var(--white);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+
+        .chart-card h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chart-card h3 .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .chart-card h3 .dot.green { background: var(--green); }
+        .chart-card h3 .dot.orange { background: var(--orange); }
+
+        .chart-container {
+            position: relative;
+            height: 250px;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .header h1 {
@@ -377,12 +391,20 @@
                 grid-template-columns: 1fr;
             }
 
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+
             .countdown-row {
                 gap: 20px;
             }
 
             .status-banner {
                 flex-direction: column;
+            }
+
+            .chart-container {
+                height: 200px;
             }
         }
     </style>
@@ -442,6 +464,38 @@
             </div>
         </div>
 
+        <!-- Charts Section -->
+        <section class="charts-section" id="charts-section" style="display: none;">
+            <h2>📊 Evolución Diaria</h2>
+            <div class="charts-grid">
+                <!-- Medellín Charts -->
+                <div class="chart-card">
+                    <h3><span class="dot green"></span> Boletas — Medellín</h3>
+                    <div class="chart-container">
+                        <canvas id="chart-medellin-boletas"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3><span class="dot orange"></span> Inversión — Medellín</h3>
+                    <div class="chart-container">
+                        <canvas id="chart-medellin-inversion"></canvas>
+                    </div>
+                </div>
+                <!-- Bogotá Charts -->
+                <div class="chart-card">
+                    <h3><span class="dot green"></span> Boletas — Bogotá</h3>
+                    <div class="chart-container">
+                        <canvas id="chart-bogota-boletas"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3><span class="dot orange"></span> Inversión — Bogotá</h3>
+                    <div class="chart-container">
+                        <canvas id="chart-bogota-inversion"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
 
         <!-- Last Update -->
         <div class="last-update" id="last-update"></div>
@@ -668,34 +722,164 @@ Ve a tu Google Sheet y:
             return summed;
         }
 
-        // Calculate velocity (tickets per day)
-        // Works with both daily increments and cumulative data
-        function calculateVelocity(data) {
-            if (!data || data.length < 2) return 0;
+        // Store chart instances for cleanup
+        let chartInstances = {};
 
-            // Filter out the "Totales" row for velocity calculation
-            const dailyData = data.filter(row => !row.isTotales);
+        // Render charts for daily data
+        function renderCharts(medellinData, bogotaData) {
+            // Filter out Totales rows for charts
+            const medellinDaily = medellinData.filter(row => !row.isTotales);
+            const bogotaDaily = bogotaData.filter(row => !row.isTotales);
 
-            if (dailyData.length < 2) return 0;
+            // Show charts section
+            document.getElementById('charts-section').style.display = 'block';
 
-            // Get last 7 days of actual data
-            const recent = dailyData.slice(-7);
+            // Chart options
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#0D1B2A',
+                        titleFont: { family: 'Inter', weight: '600' },
+                        bodyFont: { family: 'Inter' },
+                        padding: 12,
+                        cornerRadius: 8
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { family: 'Inter', size: 11 } }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0,0,0,0.05)' },
+                        ticks: { font: { family: 'Inter', size: 11 } }
+                    }
+                }
+            };
 
-            // Check if data is daily increments or cumulative
-            // If values generally increase, it's cumulative; if they fluctuate around similar values, it's daily
-            const firstVal = recent[0].boletas;
-            const lastVal = recent[recent.length - 1].boletas;
+            // Helper to format dates
+            const formatDate = (fecha) => {
+                if (!fecha) return '';
+                const d = new Date(fecha);
+                if (isNaN(d)) return fecha;
+                return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+            };
 
-            // If last value is much smaller than first, it's likely daily increments
-            if (lastVal < firstVal * 0.5 && recent.length > 2) {
-                // Daily increments: sum recent days and divide by count
-                const sum = recent.reduce((acc, row) => acc + row.boletas, 0);
-                return sum / recent.length;
-            } else {
-                // Cumulative data: (last - first) / days
-                const days = recent.length - 1;
-                return days > 0 ? (lastVal - firstVal) / days : 0;
-            }
+            // Destroy existing charts
+            Object.values(chartInstances).forEach(chart => chart.destroy());
+            chartInstances = {};
+
+            // Medellín Boletas
+            chartInstances.medellinBoletas = new Chart(
+                document.getElementById('chart-medellin-boletas'),
+                {
+                    type: 'line',
+                    data: {
+                        labels: medellinDaily.map(r => formatDate(r.fecha)),
+                        datasets: [{
+                            data: medellinDaily.map(r => r.boletas),
+                            borderColor: '#16a34a',
+                            backgroundColor: 'rgba(22, 163, 74, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#16a34a'
+                        }]
+                    },
+                    options: chartOptions
+                }
+            );
+
+            // Medellín Inversión
+            chartInstances.medellinInversion = new Chart(
+                document.getElementById('chart-medellin-inversion'),
+                {
+                    type: 'line',
+                    data: {
+                        labels: medellinDaily.map(r => formatDate(r.fecha)),
+                        datasets: [{
+                            data: medellinDaily.map(r => r.inversion),
+                            borderColor: '#f97316',
+                            backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#f97316'
+                        }]
+                    },
+                    options: {
+                        ...chartOptions,
+                        scales: {
+                            ...chartOptions.scales,
+                            y: {
+                                ...chartOptions.scales.y,
+                                ticks: {
+                                    ...chartOptions.scales.y.ticks,
+                                    callback: (val) => '$' + val.toLocaleString('es-CO')
+                                }
+                            }
+                        }
+                    }
+                }
+            );
+
+            // Bogotá Boletas
+            chartInstances.bogotaBoletas = new Chart(
+                document.getElementById('chart-bogota-boletas'),
+                {
+                    type: 'line',
+                    data: {
+                        labels: bogotaDaily.map(r => formatDate(r.fecha)),
+                        datasets: [{
+                            data: bogotaDaily.map(r => r.boletas),
+                            borderColor: '#16a34a',
+                            backgroundColor: 'rgba(22, 163, 74, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#16a34a'
+                        }]
+                    },
+                    options: chartOptions
+                }
+            );
+
+            // Bogotá Inversión
+            chartInstances.bogotaInversion = new Chart(
+                document.getElementById('chart-bogota-inversion'),
+                {
+                    type: 'line',
+                    data: {
+                        labels: bogotaDaily.map(r => formatDate(r.fecha)),
+                        datasets: [{
+                            data: bogotaDaily.map(r => r.inversion),
+                            borderColor: '#f97316',
+                            backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#f97316'
+                        }]
+                    },
+                    options: {
+                        ...chartOptions,
+                        scales: {
+                            ...chartOptions.scales,
+                            y: {
+                                ...chartOptions.scales.y,
+                                ticks: {
+                                    ...chartOptions.scales.y.ticks,
+                                    callback: (val) => '$' + val.toLocaleString('es-CO')
+                                }
+                            }
+                        }
+                    }
+                }
+            );
         }
 
         // Render the dashboard
@@ -727,30 +911,23 @@ Ve a tu Google Sheet y:
             // Render event cards
             const container = document.getElementById('events-container');
             container.innerHTML = `
-                ${renderEventCard('MEDELLIN', medellin, medellinData)}
-                ${renderEventCard('BOGOTA', bogota, bogotaData)}
+                ${renderEventCard('MEDELLIN', medellin)}
+                ${renderEventCard('BOGOTA', bogota)}
             `;
+
+            // Render charts
+            renderCharts(medellinData, bogotaData);
         }
 
         // Render a single event card
-        function renderEventCard(key, data, allData) {
+        function renderEventCard(key, data) {
             const config = CONFIG[key];
             const soldPct = (data.boletas / config.goal) * 100;
             const budgetPct = (data.inversion / config.budget) * 100;
             const remaining = config.goal - data.boletas;
             const budgetRemaining = config.budget - data.inversion;
             const ventas = data.ventas || 0;
-            const cpa = data.boletas > 0 ? data.inversion / data.boletas : 0;
             const roas = data.inversion > 0 ? (ventas / data.inversion) : 0;
-            const velocity = calculateVelocity(allData);
-            const daysLeft = daysUntil(config.date);
-
-            // Required velocity to sell out
-            const requiredVelocity = remaining / Math.max(daysLeft, 1);
-
-            // Projection
-            const projectedSold = Math.min(data.boletas + (velocity * daysLeft), config.goal);
-            const willSellOut = projectedSold >= config.goal;
 
             // Progress bar colors
             const ticketBarClass = soldPct >= 90 ? 'highlight' : 'tickets';
@@ -802,19 +979,6 @@ Ve a tu Google Sheet y:
                         <div class="stat-box ${roas >= 3 ? 'highlight' : ''}">
                             <div class="number">${roas > 0 ? roas.toFixed(1) + 'x' : '--'}</div>
                             <div class="label">ROAS</div>
-                        </div>
-                    </div>
-
-                    <!-- Velocity -->
-                    <div class="velocity">
-                        <div class="velocity-icon">${velocity >= requiredVelocity ? '🚀' : '⚡'}</div>
-                        <div class="velocity-info">
-                            <div class="rate">${velocity.toFixed(1)} boletas/día</div>
-                            <div class="projection">
-                                ${velocity >= requiredVelocity
-                                    ? '✅ A este ritmo, llegas a sold out'
-                                    : `⚠️ Necesitas ${requiredVelocity.toFixed(1)} boletas/día para sold out`}
-                            </div>
                         </div>
                     </div>
                 </div>

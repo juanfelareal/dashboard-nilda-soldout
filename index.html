@@ -628,15 +628,21 @@ Ve a tu Google Sheet y:
                 return { boletas: 0, ventas: 0, inversion: 0 };
             }
 
-            // Look for a "Totales" row first
-            const totalesRow = data.find(row =>
-                row.fecha && String(row.fecha).toLowerCase().includes('total')
-            );
+            console.log('All rows for getLatest:', data.map(r => ({ fecha: r.fecha, boletas: r.boletas })));
+
+            // Look for a "Totales" row first (check multiple variations)
+            const totalesRow = data.find(row => {
+                if (!row.fecha) return false;
+                const fecha = String(row.fecha).toLowerCase().trim();
+                return fecha.includes('total') || fecha.includes('suma') || fecha === 't';
+            });
 
             if (totalesRow) {
-                console.log('Using Totales row:', totalesRow);
+                console.log('✓ Found Totales row:', totalesRow);
                 return totalesRow;
             }
+
+            console.log('✗ No Totales row found, using row with max boletas');
 
             // If no totales row, find the row with maximum boletas (cumulative)
             const maxBoletasRow = data.reduce((max, row) =>

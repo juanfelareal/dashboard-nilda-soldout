@@ -482,13 +482,13 @@
             <h2>📊 Evolución Diaria</h2>
             <div class="charts-grid">
                 <div class="chart-card">
-                    <h3>Medellín <span class="chart-legend"><span class="dot green"></span> Boletas <span class="dot orange"></span> Inversión</span></h3>
+                    <h3>Medellín <span class="chart-legend"><span class="dot green"></span> Ventas <span class="dot orange"></span> Inversión</span></h3>
                     <div class="chart-container">
                         <canvas id="chart-medellin"></canvas>
                     </div>
                 </div>
                 <div class="chart-card">
-                    <h3>Bogotá <span class="chart-legend"><span class="dot green"></span> Boletas <span class="dot orange"></span> Inversión</span></h3>
+                    <h3>Bogotá <span class="chart-legend"><span class="dot green"></span> Ventas <span class="dot orange"></span> Inversión</span></h3>
                     <div class="chart-container">
                         <canvas id="chart-bogota"></canvas>
                     </div>
@@ -745,7 +745,7 @@ Ve a tu Google Sheet y:
             Object.values(chartInstances).forEach(chart => chart.destroy());
             chartInstances = {};
 
-            // Combined chart config with dual Y-axes
+            // Combined chart config with dual Y-axes (Ventas vs Inversión)
             const createCombinedChart = (canvasId, dailyData) => {
                 return new Chart(document.getElementById(canvasId), {
                     type: 'line',
@@ -753,8 +753,8 @@ Ve a tu Google Sheet y:
                         labels: dailyData.map(r => formatDate(r.fecha)),
                         datasets: [
                             {
-                                label: 'Boletas',
-                                data: dailyData.map(r => r.boletas),
+                                label: 'Ventas',
+                                data: dailyData.map(r => r.ventas),
                                 borderColor: '#16a34a',
                                 backgroundColor: 'rgba(22, 163, 74, 0.1)',
                                 fill: true,
@@ -793,10 +793,7 @@ Ve a tu Google Sheet y:
                                 cornerRadius: 8,
                                 callbacks: {
                                     label: (ctx) => {
-                                        if (ctx.dataset.label === 'Inversión') {
-                                            return `Inversión: $${ctx.raw.toLocaleString('es-CO')}`;
-                                        }
-                                        return `Boletas: ${ctx.raw}`;
+                                        return `${ctx.dataset.label}: $${ctx.raw.toLocaleString('es-CO')}`;
                                     }
                                 }
                             }
@@ -813,11 +810,12 @@ Ve a tu Google Sheet y:
                                 grid: { color: 'rgba(22, 163, 74, 0.1)' },
                                 ticks: {
                                     font: { family: 'Inter', size: 11 },
-                                    color: '#16a34a'
+                                    color: '#16a34a',
+                                    callback: (val) => '$' + (val / 1000000).toFixed(1) + 'M'
                                 },
                                 title: {
                                     display: true,
-                                    text: 'Boletas',
+                                    text: 'Ventas',
                                     color: '#16a34a',
                                     font: { family: 'Inter', size: 11, weight: '600' }
                                 }

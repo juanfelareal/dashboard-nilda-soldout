@@ -696,26 +696,61 @@ Ve a tu Google Sheet y:
             return results;
         }
 
-        // Get latest data point
+        // Get latest data point - prefers "Totales" row if exists, otherwise last row
         function getLatest(data) {
             if (!data || data.length === 0) {
                 return { boletas: 0, ventas: 0, inversion: 0 };
             }
-            return data[data.length - 1];
+
+            // Look for a "Totales" row first
+            const totalesRow = data.find(row =>
+                row.fecha && String(row.fecha).toLowerCase().includes('total')
+            );
+
+            if (totalesRow) {
+                console.log('Using Totales row:', totalesRow);
+                return totalesRow;
+            }
+
+            // If no totales row, find the row with maximum boletas (cumulative)
+            const maxBoletasRow = data.reduce((max, row) =>
+                row.boletas > max.boletas ? row : max
+            , data[0]);
+
+            console.log('Using max boletas row:', maxBoletasRow);
+            return maxBoletasRow;
         }
 
         // Calculate velocity (tickets per day)
+        // Works with both daily increments and cumulative data
         function calculateVelocity(data) {
             if (!data || data.length < 2) return 0;
 
-            const recent = data.slice(-7); // Last 7 days
-            if (recent.length < 2) return 0;
+            // Filter out the "Totales" row for velocity calculation
+            const dailyData = data.filter(row =>
+                !String(row.fecha).toLowerCase().includes('total')
+            );
 
-            const first = recent[0].boletas;
-            const last = recent[recent.length - 1].boletas;
-            const days = recent.length - 1;
+            if (dailyData.length < 2) return 0;
 
-            return days > 0 ? (last - first) / days : 0;
+            // Get last 7 days of actual data
+            const recent = dailyData.slice(-7);
+
+            // Check if data is daily increments or cumulative
+            // If values generally increase, it's cumulative; if they fluctuate around similar values, it's daily
+            const firstVal = recent[0].boletas;
+            const lastVal = recent[recent.length - 1].boletas;
+
+            // If last value is much smaller than first, it's likely daily increments
+            if (lastVal < firstVal * 0.5 && recent.length > 2) {
+                // Daily increments: sum recent days and divide by count
+                const sum = recent.reduce((acc, row) => acc + row.boletas, 0);
+                return sum / recent.length;
+            } else {
+                // Cumulative data: (last - first) / days
+                const days = recent.length - 1;
+                return days > 0 ? (lastVal - firstVal) / days : 0;
+            }
         }
 
         // Render the dashboard

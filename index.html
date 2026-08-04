@@ -376,6 +376,19 @@
         .chart-card h3 .dot.green { background: var(--green); }
         .chart-card h3 .dot.orange { background: var(--orange); }
 
+        .chart-legend {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--gray);
+            margin-left: 10px;
+        }
+
+        .chart-legend .dot {
+            display: inline-block;
+            margin-right: 4px;
+            margin-left: 8px;
+        }
+
         .chart-container {
             position: relative;
             height: 250px;
@@ -468,30 +481,16 @@
         <section class="charts-section" id="charts-section" style="display: none;">
             <h2>📊 Evolución Diaria</h2>
             <div class="charts-grid">
-                <!-- Medellín Charts -->
                 <div class="chart-card">
-                    <h3><span class="dot green"></span> Boletas — Medellín</h3>
+                    <h3>Medellín <span class="chart-legend"><span class="dot green"></span> Boletas <span class="dot orange"></span> Inversión</span></h3>
                     <div class="chart-container">
-                        <canvas id="chart-medellin-boletas"></canvas>
+                        <canvas id="chart-medellin"></canvas>
                     </div>
                 </div>
                 <div class="chart-card">
-                    <h3><span class="dot orange"></span> Inversión — Medellín</h3>
+                    <h3>Bogotá <span class="chart-legend"><span class="dot green"></span> Boletas <span class="dot orange"></span> Inversión</span></h3>
                     <div class="chart-container">
-                        <canvas id="chart-medellin-inversion"></canvas>
-                    </div>
-                </div>
-                <!-- Bogotá Charts -->
-                <div class="chart-card">
-                    <h3><span class="dot green"></span> Boletas — Bogotá</h3>
-                    <div class="chart-container">
-                        <canvas id="chart-bogota-boletas"></canvas>
-                    </div>
-                </div>
-                <div class="chart-card">
-                    <h3><span class="dot orange"></span> Inversión — Bogotá</h3>
-                    <div class="chart-container">
-                        <canvas id="chart-bogota-inversion"></canvas>
+                        <canvas id="chart-bogota"></canvas>
                     </div>
                 </div>
             </div>
@@ -734,33 +733,6 @@ Ve a tu Google Sheet y:
             // Show charts section
             document.getElementById('charts-section').style.display = 'block';
 
-            // Chart options
-            const chartOptions = {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: '#0D1B2A',
-                        titleFont: { family: 'Inter', weight: '600' },
-                        bodyFont: { family: 'Inter' },
-                        padding: 12,
-                        cornerRadius: 8
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { font: { family: 'Inter', size: 11 } }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(0,0,0,0.05)' },
-                        ticks: { font: { family: 'Inter', size: 11 } }
-                    }
-                }
-            };
-
             // Helper to format dates
             const formatDate = (fecha) => {
                 if (!fecha) return '';
@@ -773,113 +745,108 @@ Ve a tu Google Sheet y:
             Object.values(chartInstances).forEach(chart => chart.destroy());
             chartInstances = {};
 
-            // Medellín Boletas
-            chartInstances.medellinBoletas = new Chart(
-                document.getElementById('chart-medellin-boletas'),
-                {
+            // Combined chart config with dual Y-axes
+            const createCombinedChart = (canvasId, dailyData) => {
+                return new Chart(document.getElementById(canvasId), {
                     type: 'line',
                     data: {
-                        labels: medellinDaily.map(r => formatDate(r.fecha)),
-                        datasets: [{
-                            data: medellinDaily.map(r => r.boletas),
-                            borderColor: '#16a34a',
-                            backgroundColor: 'rgba(22, 163, 74, 0.1)',
-                            fill: true,
-                            tension: 0.3,
-                            pointRadius: 4,
-                            pointBackgroundColor: '#16a34a'
-                        }]
-                    },
-                    options: chartOptions
-                }
-            );
-
-            // Medellín Inversión
-            chartInstances.medellinInversion = new Chart(
-                document.getElementById('chart-medellin-inversion'),
-                {
-                    type: 'line',
-                    data: {
-                        labels: medellinDaily.map(r => formatDate(r.fecha)),
-                        datasets: [{
-                            data: medellinDaily.map(r => r.inversion),
-                            borderColor: '#f97316',
-                            backgroundColor: 'rgba(249, 115, 22, 0.1)',
-                            fill: true,
-                            tension: 0.3,
-                            pointRadius: 4,
-                            pointBackgroundColor: '#f97316'
-                        }]
+                        labels: dailyData.map(r => formatDate(r.fecha)),
+                        datasets: [
+                            {
+                                label: 'Boletas',
+                                data: dailyData.map(r => r.boletas),
+                                borderColor: '#16a34a',
+                                backgroundColor: 'rgba(22, 163, 74, 0.1)',
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: 5,
+                                pointBackgroundColor: '#16a34a',
+                                yAxisID: 'y'
+                            },
+                            {
+                                label: 'Inversión',
+                                data: dailyData.map(r => r.inversion),
+                                borderColor: '#f97316',
+                                backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: 5,
+                                pointBackgroundColor: '#f97316',
+                                yAxisID: 'y1'
+                            }
+                        ]
                     },
                     options: {
-                        ...chartOptions,
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#0D1B2A',
+                                titleFont: { family: 'Inter', weight: '600' },
+                                bodyFont: { family: 'Inter' },
+                                padding: 12,
+                                cornerRadius: 8,
+                                callbacks: {
+                                    label: (ctx) => {
+                                        if (ctx.dataset.label === 'Inversión') {
+                                            return `Inversión: $${ctx.raw.toLocaleString('es-CO')}`;
+                                        }
+                                        return `Boletas: ${ctx.raw}`;
+                                    }
+                                }
+                            }
+                        },
                         scales: {
-                            ...chartOptions.scales,
+                            x: {
+                                grid: { display: false },
+                                ticks: { font: { family: 'Inter', size: 11 } }
+                            },
                             y: {
-                                ...chartOptions.scales.y,
+                                type: 'linear',
+                                position: 'left',
+                                beginAtZero: true,
+                                grid: { color: 'rgba(22, 163, 74, 0.1)' },
                                 ticks: {
-                                    ...chartOptions.scales.y.ticks,
-                                    callback: (val) => '$' + val.toLocaleString('es-CO')
+                                    font: { family: 'Inter', size: 11 },
+                                    color: '#16a34a'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Boletas',
+                                    color: '#16a34a',
+                                    font: { family: 'Inter', size: 11, weight: '600' }
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                position: 'right',
+                                beginAtZero: true,
+                                grid: { drawOnChartArea: false },
+                                ticks: {
+                                    font: { family: 'Inter', size: 11 },
+                                    color: '#f97316',
+                                    callback: (val) => '$' + (val / 1000).toFixed(0) + 'k'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Inversión',
+                                    color: '#f97316',
+                                    font: { family: 'Inter', size: 11, weight: '600' }
                                 }
                             }
                         }
                     }
-                }
-            );
+                });
+            };
 
-            // Bogotá Boletas
-            chartInstances.bogotaBoletas = new Chart(
-                document.getElementById('chart-bogota-boletas'),
-                {
-                    type: 'line',
-                    data: {
-                        labels: bogotaDaily.map(r => formatDate(r.fecha)),
-                        datasets: [{
-                            data: bogotaDaily.map(r => r.boletas),
-                            borderColor: '#16a34a',
-                            backgroundColor: 'rgba(22, 163, 74, 0.1)',
-                            fill: true,
-                            tension: 0.3,
-                            pointRadius: 4,
-                            pointBackgroundColor: '#16a34a'
-                        }]
-                    },
-                    options: chartOptions
-                }
-            );
-
-            // Bogotá Inversión
-            chartInstances.bogotaInversion = new Chart(
-                document.getElementById('chart-bogota-inversion'),
-                {
-                    type: 'line',
-                    data: {
-                        labels: bogotaDaily.map(r => formatDate(r.fecha)),
-                        datasets: [{
-                            data: bogotaDaily.map(r => r.inversion),
-                            borderColor: '#f97316',
-                            backgroundColor: 'rgba(249, 115, 22, 0.1)',
-                            fill: true,
-                            tension: 0.3,
-                            pointRadius: 4,
-                            pointBackgroundColor: '#f97316'
-                        }]
-                    },
-                    options: {
-                        ...chartOptions,
-                        scales: {
-                            ...chartOptions.scales,
-                            y: {
-                                ...chartOptions.scales.y,
-                                ticks: {
-                                    ...chartOptions.scales.y.ticks,
-                                    callback: (val) => '$' + val.toLocaleString('es-CO')
-                                }
-                            }
-                        }
-                    }
-                }
-            );
+            // Create combined charts
+            chartInstances.medellin = createCombinedChart('chart-medellin', medellinDaily);
+            chartInstances.bogota = createCombinedChart('chart-bogota', bogotaDaily);
         }
 
         // Render the dashboard
